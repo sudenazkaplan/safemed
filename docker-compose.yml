@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # ALTYAPI VE VERİTABANLARI (Infrastructure)
+  # ==========================================
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: safemed-rabbitmq
+    ports:
+      - "5672:5672"   # RabbitMQ iletişim portu
+      - "15672:15672" # Yönetim paneli arayüzü (localhost:15672)
+
+  postgres:
+    image: postgres:15
+    container_name: safemed-postgres
+    environment:
+      POSTGRES_DB: safemed_audit
+      POSTGRES_USER: safemed_user
+      POSTGRES_PASSWORD: safemed_password
+    ports:
+      - "5432:5432"
+
+  mongodb:
+    image: mongo:latest
+    container_name: safemed-mongodb
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:alpine
+    container_name: safemed-redis
+    ports:
+      - "6379:6379"
+
+  # ==========================================
+  # MICROSERVICES (İleride kodlar hazır olunca eklenecek)
+  # ==========================================
+  # ingestion-service:
+  # anonymization-service:
+  # ...
