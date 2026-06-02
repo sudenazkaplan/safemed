@@ -1,0 +1,37 @@
+### Ingestion Service - Submit Raw Medical Record
+POST http://127.0.0.1:8080/api/v1/ingestion/submit
+Content-Type: application/json
+
+{
+  "patientName": "",
+  "nationalId": "12345678901",
+  "diseaseInfo": "Influenza",
+  "hospitalName": "Ankara City Hospital"
+}
+
+### Get Record Status (Mock - DB lookup not yet implemented)
+GET http://127.0.0.1:8080/api/v1/ingestion/status/a1b2-track-001
+Accept: application/json
+
+### List Raw Records (Mock - 2 sample records)
+GET http://127.0.0.1:8080/api/v1/ingestion/records
+Accept: application/json
+
+### Cancel / Delete Record from Queue
+DELETE http://127.0.0.1:8080/api/v1/ingestion/records/a1b2-track-001
+Accept: application/json
+
+### Service Health Check (Spring Boot Actuator)
+GET http://127.0.0.1:8080/actuator/health
+Accept: application/json
+
+### Validation Test - Invalid payload (expects 400 Bad Request)
+POST http://127.0.0.1:8080/api/v1/ingestion/submit
+Content-Type: application/json
+
+{
+  "patientName": "",
+  "nationalId": "123",
+  "diseaseInfo": "",
+  "hospitalName": ""
+}
