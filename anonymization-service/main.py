@@ -8,7 +8,13 @@ from fastapi import Body, FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
-from rabbitmq_consumer import anonymize_record, is_consumer_alive, start_consumer_thread
+from rabbitmq_consumer import (
+    MONGODB_URI,
+    anonymize_record,
+    is_consumer_alive,
+    privacy_config,
+    start_consumer_thread,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,16 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("anonymization-service")
 
-# using 27018 because local mongo already grabs 27017
-MONGODB_URI = "mongodb://safemed_admin:safemed_password@localhost:27018/?authSource=admin"
 MONGODB_PING_TIMEOUT_MS = 2000
-
-# fake config store for now, will move to mongo later
-privacy_config: dict[str, Any] = {
-    "epsilon": 0.1,
-    "masking_rules": ["name_initials", "id_partial_mask"],
-    "noise_enabled": True,
-}
 
 
 class PrivacyConfigUpdate(BaseModel):
