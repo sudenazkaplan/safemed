@@ -7,6 +7,9 @@ import lombok.Data;
 @Data
 public class MedicalRecordDTO {
 
+    // set server-side before publishing, not sent by the client
+    private String trackingId;
+
     @NotBlank(message = "Patient name must not be blank")
     @Size(max = 100, message = "Patient name must be at most 100 characters")
     private String patientName;

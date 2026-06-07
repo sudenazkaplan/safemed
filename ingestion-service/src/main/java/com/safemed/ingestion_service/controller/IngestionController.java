@@ -55,6 +55,8 @@ public class IngestionController {
         String trackingId = UUID.randomUUID().toString();
         log.info("Raw record received. trackingId={}, hospital={}", trackingId, record.getHospitalName());
 
+        // attach trackingId so the consumer gets it too
+        record.setTrackingId(trackingId);
         rabbitMQProducer.sendEvent(record);
         log.info("Record forwarded to the queue. trackingId={}", trackingId);
 
