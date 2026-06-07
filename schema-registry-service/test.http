@@ -1,0 +1,12 @@
+### 1. Veritabanına Yeni Bir Hastane Şeması Ekle
+POST http://localhost:8081/api/v1/schemas
+Content-Type: application/json
+
+{
+  "institutionName": "Ankara Şehir Hastanesi",
+  "formatType": "JSON",
+  "mappingRules": "{\"patientId\": \"id\", \"diagnosis\": \"disease\"}"
+}
+
+### 2. Veritabanındaki Aktif Şemaları Listele
+GET http://localhost:8081/api/v1/schemas

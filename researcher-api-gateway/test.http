@@ -1,0 +1,12 @@
+### 1. Gateway Üzerinden Yeni Şema Ekleme (8080)
+POST http://localhost:8080/api/v1/schemas
+Content-Type: application/json
+
+{
+  "institutionName": "Test Hastanesi",
+  "formatType": "JSON",
+  "mappingRules": "{\"patientId\": \"hasta_no\", \"diagnosis\": \"teshis\"}"
+}
+
+### 2. Gateway Üzerinden Şemaları Listeleme (8080)
+GET http://localhost:8080/api/v1/schemas
