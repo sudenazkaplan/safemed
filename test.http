@@ -4,8 +4,8 @@ Content-Type: application/json
 
 {
   "patientName": "Sudenaz Kaplan",
-  "nationalId": "12345678901",
-  "diseaseInfo": "Influenza",
+  "nationalId": "98765432109",
+  "diseaseInfo": "Migraine",
   "hospitalName": "Ankara City Hospital"
 }
 
