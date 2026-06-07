@@ -1,0 +1,77 @@
+### Audit & Compliance Logger Service - manual API tests
+### base url
+@host = http://localhost:8083
+
+### log ekleme 1 - ingestion basarili
+POST {{host}}/api/v1/audit/logs
+Content-Type: application/json
+
+{
+  "trackingId": "ad63d65d-4c87-4cb4-a54d-ad14afe2bcd7",
+  "userId": "ingestion-service",
+  "action": "INGEST_RAW",
+  "status": "SUCCESS",
+  "details": "Data received and sent to rabbitmq"
+}
+
+### log ekleme 2 - python maskeledi
+POST {{host}}/api/v1/audit/logs
+Content-Type: application/json
+
+{
+  "trackingId": "ad63d65d-4c87-4cb4-a54d-ad14afe2bcd7",
+  "userId": "anonymization-service",
+  "action": "DATA_MASKED",
+  "status": "SUCCESS",
+  "details": "PII data masked and saved to mongo"
+}
+
+### log ekleme 3 - arastirmaci girdi
+POST {{host}}/api/v1/audit/logs
+Content-Type: application/json
+
+{
+  "trackingId": "TRK-2002",
+  "userId": "researcher-42",
+  "action": "RESEARCHER_ACCESS",
+  "status": "SUCCESS",
+  "details": "Researcher queried anonymized metrics"
+}
+
+### log ekleme 4 - supheli durum / anomali
+POST {{host}}/api/v1/audit/logs
+Content-Type: application/json
+
+{
+  "trackingId": "TRK-2002",
+  "userId": "unknown-client",
+  "action": "RESEARCHER_ACCESS",
+  "status": "ANOMALY",
+  "details": "Unauthorized access blocked"
+}
+
+### log ekleme 5 - validation hatası / patlayan durum
+POST {{host}}/api/v1/audit/logs
+Content-Type: application/json
+
+{
+  "trackingId": "TRK-3003",
+  "userId": "ingestion-service",
+  "action": "INGEST_RAW",
+  "status": "FAILED",
+  "details": "Validation failed, bad format"
+}
+
+### SORGULAR
+
+### hepsini getir
+GET {{host}}/api/v1/audit/logs
+
+### sadece anomalileri getir
+GET {{host}}/api/v1/audit/logs/filter/anomalies
+
+### tek bir trackingId provenance (timestamp artan)
+GET {{host}}/api/v1/audit/logs/ad63d65d-4c87-4cb4-a54d-ad14afe2bcd7
+
+### genel kvkk / uyumluluk raporu
+GET {{host}}/api/v1/audit/compliance-report
