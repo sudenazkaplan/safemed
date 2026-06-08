@@ -1,4 +1,5 @@
 services:
+  # ---------- infrastructure ----------
   safemed-rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: safemed-rabbitmq
@@ -7,6 +8,11 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   safemed-postgres:
     image: postgres:15-alpine
@@ -19,6 +25,11 @@ services:
       POSTGRES_DB: safemed_audit_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U safemed_user -d safemed_audit_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   safemed-mongodb:
     image: mongo:6.0
@@ -30,6 +41,11 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: safemed_password
     volumes:
       - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   safemed-redis:
     image: redis:latest
@@ -38,6 +54,86 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- application services ----------
+  ingestion-service:
+    build: ./ingestion-service
+    container_name: safemed-ingestion-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://safemed-postgres:5432/safemed_audit_db
+      SPRING_DATASOURCE_USERNAME: safemed_user
+      SPRING_DATASOURCE_PASSWORD: safemed_password
+      SPRING_RABBITMQ_HOST: safemed-rabbitmq
+      SPRING_RABBITMQ_PORT: "5672"
+    depends_on:
+      safemed-postgres:
+        condition: service_healthy
+      safemed-rabbitmq:
+        condition: service_healthy
+
+  anonymization-service:
+    build: ./anonymization-service
+    container_name: safemed-anonymization-service
+    ports:
+      - "8081:8081"
+    environment:
+      RABBITMQ_HOST: safemed-rabbitmq
+      MONGODB_URI: mongodb://safemed_admin:safemed_password@safemed-mongodb:27017/?authSource=admin
+    depends_on:
+      safemed-rabbitmq:
+        condition: service_healthy
+      safemed-mongodb:
+        condition: service_healthy
+
+  schema-registry-service:
+    build: ./schema-registry-service
+    container_name: safemed-schema-registry-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://safemed-postgres:5432/safemed_audit_db
+      SPRING_DATASOURCE_USERNAME: safemed_user
+      SPRING_DATASOURCE_PASSWORD: safemed_password
+    depends_on:
+      safemed-postgres:
+        condition: service_healthy
+
+  audit-compliance-service:
+    build: ./audit-compliance-service
+    container_name: safemed-audit-compliance-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://safemed-postgres:5432/safemed_audit_db
+      SPRING_DATASOURCE_USERNAME: safemed_user
+      SPRING_DATASOURCE_PASSWORD: safemed_password
+    depends_on:
+      safemed-postgres:
+        condition: service_healthy
+
+  researcher-api-gateway:
+    build: ./researcher-api-gateway
+    container_name: safemed-researcher-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://safemed-postgres:5432/safemed_audit_db
+      SPRING_DATASOURCE_USERNAME: safemed_user
+      SPRING_DATASOURCE_PASSWORD: safemed_password
+      SPRING_DATA_REDIS_HOST: safemed-redis
+      SPRING_DATA_REDIS_PORT: "6379"
+    depends_on:
+      safemed-postgres:
+        condition: service_healthy
+      safemed-redis:
+        condition: service_healthy
 
 volumes:
   rabbitmq_data:

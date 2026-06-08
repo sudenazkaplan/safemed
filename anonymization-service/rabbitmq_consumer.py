@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import math
+import os
 import random
 import threading
 import time
@@ -18,7 +19,8 @@ from presidio_anonymizer.entities import OperatorConfig
 logger = logging.getLogger("anonymization-service.consumer")
 
 # same creds as the java service / docker-compose
-RABBITMQ_HOST = "localhost"
+# host comes from env so it works both locally and inside docker
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = "guest"
 RABBITMQ_PASSWORD = "guest"
@@ -28,8 +30,8 @@ RAW_QUEUE = "safemed.raw.queue"
 
 RECONNECT_DELAY_SECONDS = 5
 
-# mongo target (27018 because local mongo grabs 27017)
-MONGODB_URI = "mongodb://safemed_admin:safemed_password@localhost:27018/?authSource=admin"
+# mongo target, overridden by env inside docker
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGO_DB = "safemed_core_db"
 MONGO_COLLECTION = "medical_records"
 
