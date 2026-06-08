@@ -1,11 +1,14 @@
 package com.safemed.schema_registry.controller;
 
+import com.safemed.schema_registry.dto.HospitalSchemaDTO;
 import com.safemed.schema_registry.model.HospitalSchema;
 import com.safemed.schema_registry.service.SchemaRegistryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController
@@ -16,23 +19,29 @@ public class SchemaRegistryController {
     private final SchemaRegistryService service;
 
     @PostMapping
-    public ResponseEntity<HospitalSchema> createSchema(@RequestBody HospitalSchema schema) {
-        return new ResponseEntity<>(service.createSchema(schema), HttpStatus.CREATED);
+    public ResponseEntity<HospitalSchemaDTO> createSchema(@Valid @RequestBody HospitalSchemaDTO request) {
+        HospitalSchema saved = service.createSchema(HospitalSchema.fromDTO(request));
+        return new ResponseEntity<>(saved.toDTO(), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<HospitalSchema>> getAllSchemas() {
-        return ResponseEntity.ok(service.getAllActiveSchemas());
+    public ResponseEntity<List<HospitalSchemaDTO>> getAllSchemas() {
+        List<HospitalSchemaDTO> schemas = service.getAllActiveSchemas().stream()
+                .map(HospitalSchema::toDTO)
+                .toList();
+        return ResponseEntity.ok(schemas);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<HospitalSchema> getSchemaById(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getSchemaById(id));
+    public ResponseEntity<HospitalSchemaDTO> getSchemaById(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getSchemaById(id).toDTO());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<HospitalSchema> updateSchema(@PathVariable Long id, @RequestBody HospitalSchema schema) {
-        return ResponseEntity.ok(service.updateSchema(id, schema));
+    public ResponseEntity<HospitalSchemaDTO> updateSchema(@PathVariable Long id,
+                                                          @Valid @RequestBody HospitalSchemaDTO request) {
+        HospitalSchema updated = service.updateSchema(id, HospitalSchema.fromDTO(request));
+        return ResponseEntity.ok(updated.toDTO());
     }
 
     @DeleteMapping("/{id}")

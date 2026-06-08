@@ -1,12 +1,34 @@
-### 1. Veritabanına Yeni Bir Hastane Şeması Ekle
-POST http://localhost:8081/api/v1/schemas
+@baseUrl = http://localhost:8082
+
+### 1) create a new schema (HL7/FHIR/JSON) using the DTO
+# @name createSchema
+POST {{baseUrl}}/api/v1/schemas
 Content-Type: application/json
 
 {
-  "institutionName": "Ankara Şehir Hastanesi",
-  "formatType": "JSON",
+  "institutionName": "Ankara City Hospital",
+  "formatType": "FHIR",
   "mappingRules": "{\"patientId\": \"id\", \"diagnosis\": \"disease\"}"
 }
 
-### 2. Veritabanındaki Aktif Şemaları Listele
-GET http://localhost:8081/api/v1/schemas
+# grab the new id from the create response
+@schemaId = {{createSchema.response.body.id}}
+
+### 2) list all active schemas
+GET {{baseUrl}}/api/v1/schemas
+
+### 3) get the created schema by id
+GET {{baseUrl}}/api/v1/schemas/{{schemaId}}
+
+### 4) update the mapping rules/details
+PUT {{baseUrl}}/api/v1/schemas/{{schemaId}}
+Content-Type: application/json
+
+{
+  "institutionName": "Ankara City Hospital",
+  "formatType": "HL7",
+  "mappingRules": "{\"patientId\": \"mrn\", \"diagnosis\": \"icd10\"}"
+}
+
+### 5) soft delete the schema
+DELETE {{baseUrl}}/api/v1/schemas/{{schemaId}}

@@ -1,5 +1,6 @@
 package com.safemed.schema_registry.service;
 
+import com.safemed.schema_registry.exception.ResourceNotFoundException;
 import com.safemed.schema_registry.model.HospitalSchema;
 import com.safemed.schema_registry.repository.HospitalSchemaRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,8 @@ public class SchemaRegistryService {
     }
 
     public HospitalSchema getSchemaById(Long id) {
-        return repository.findById(id).orElseThrow(() -> new RuntimeException("Şema bulunamadı ID: " + id));
+        return repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Schema not found with ID: " + id));
     }
 
     public HospitalSchema updateSchema(Long id, HospitalSchema updatedData) {

@@ -1,5 +1,6 @@
 package com.safemed.schema_registry.model;
 
+import com.safemed.schema_registry.dto.HospitalSchemaDTO;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -26,4 +27,25 @@ public class HospitalSchema {
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // build a new entity from an incoming dto
+    public static HospitalSchema fromDTO(HospitalSchemaDTO dto) {
+        HospitalSchema entity = new HospitalSchema();
+        entity.setInstitutionName(dto.getInstitutionName());
+        entity.setFormatType(dto.getFormatType());
+        entity.setMappingRules(dto.getMappingRules());
+        entity.setActive(dto.isActive());
+        return entity;
+    }
+
+    // expose this entity as a response dto
+    public HospitalSchemaDTO toDTO() {
+        HospitalSchemaDTO dto = new HospitalSchemaDTO();
+        dto.setId(this.id);
+        dto.setInstitutionName(this.institutionName);
+        dto.setFormatType(this.formatType);
+        dto.setMappingRules(this.mappingRules);
+        dto.setActive(this.isActive);
+        return dto;
+    }
 }
