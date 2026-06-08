@@ -3,13 +3,15 @@ package com.safemed.gateway.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 // one data request made by a researcher
+// implements Serializable so it can be stored in the redis cache (jdk serialization)
 @Entity
 @Table(name = "dataset_requests")
 @Data
-public class DatasetRequest {
+public class DatasetRequest implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
