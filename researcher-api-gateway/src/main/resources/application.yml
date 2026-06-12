@@ -27,3 +27,10 @@ spring:
 jwt:
   secret: change-this-very-long-secret-key-for-safemed-gateway-jwt-auth
   expiration-ms: 86400000 # 24h
+
+# swagger / openapi paths
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
