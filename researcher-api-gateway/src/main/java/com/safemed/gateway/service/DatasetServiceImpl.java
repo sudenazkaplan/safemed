@@ -51,7 +51,7 @@ public class DatasetServiceImpl implements DatasetService {
 
         DatasetRequest saved = datasetRequestRepository.save(request);
 
-        // internal audit log over (simulated) gRPC
+        // real gRPC audit
         grpcAuditClient.sendLogViaGrpc("DATASET_REQUEST_CREATED", "SUCCESS",
                 "Researcher " + username + " created request " + saved.getId());
 
