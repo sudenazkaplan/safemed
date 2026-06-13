@@ -26,4 +26,8 @@ public class User {
     // e.g. RESEARCHER, ADMIN
     @Column(nullable = false)
     private String role;
+
+    // optional webhook callback url for dataset-ready notifications
+    @Column(name = "callback_url")
+    private String callbackUrl;
 }

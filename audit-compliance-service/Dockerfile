@@ -1,5 +1,6 @@
 # ---- build stage ----
-FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+# glibc-based (not alpine/musl) so protobuf-maven-plugin's downloaded protoc binary runs
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /app
 
 # copy wrapper + pom first so dependencies are cached across builds

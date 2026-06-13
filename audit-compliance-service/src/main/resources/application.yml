@@ -17,6 +17,11 @@ spring:
 server:
   port: 8083
 
+# grpc server runs on its own port, separate from the http server
+grpc:
+  server:
+    port: 9090
+
 logging:
   level:
     org.hibernate.orm.jdbc.bind: TRACE

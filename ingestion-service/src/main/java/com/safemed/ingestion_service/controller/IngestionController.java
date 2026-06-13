@@ -3,6 +3,7 @@ package com.safemed.ingestion_service.controller;
 import com.safemed.ingestion_service.dto.MedicalRecordDTO;
 import com.safemed.ingestion_service.dto.RecordMetadataDTO;
 import com.safemed.ingestion_service.dto.StatusResponseDTO;
+import com.safemed.ingestion_service.event.MedicalRecordReceived;
 import com.safemed.ingestion_service.model.AuditLog;
 import com.safemed.ingestion_service.producer.RabbitMQProducer;
 import com.safemed.ingestion_service.repository.AuditLogRepository;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -51,14 +53,32 @@ public class IngestionController {
     );
 
     @PostMapping("/submit")
-    public ResponseEntity<String> receiveRecord(@Valid @RequestBody MedicalRecordDTO record) {
+    public ResponseEntity<String> receiveRecord(
+            @Valid @RequestBody MedicalRecordDTO record,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         String trackingId = UUID.randomUUID().toString();
+        String eventId = UUID.randomUUID().toString();
+        // reuse the inbound trace id if there is one, otherwise start a new one
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = UUID.randomUUID().toString();
+        }
         log.info("Raw record received. trackingId={}, hospital={}", trackingId, record.getHospitalName());
 
-        // attach trackingId so the consumer gets it too
-        record.setTrackingId(trackingId);
-        rabbitMQProducer.sendEvent(record);
-        log.info("Record forwarded to the queue. trackingId={}", trackingId);
+        // build a past-tense domain event carrying the full patient state
+        MedicalRecordReceived event = MedicalRecordReceived.builder()
+                .eventId(eventId)
+                .eventType("MedicalRecordReceived")
+                .correlationId(correlationId)
+                .trackingId(trackingId)
+                .occurredAt(Instant.now().toString())
+                .patientName(record.getPatientName())
+                .nationalId(record.getNationalId())
+                .diseaseInfo(record.getDiseaseInfo())
+                .hospitalName(record.getHospitalName())
+                .build();
+
+        rabbitMQProducer.sendEvent(event);
+        log.info("Event forwarded to the queue. trackingId={}, eventId={}", trackingId, eventId);
 
         AuditLog auditLog = AuditLog.builder()
                 .trackingId(trackingId)

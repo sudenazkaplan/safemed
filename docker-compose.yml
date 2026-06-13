@@ -109,11 +109,14 @@ services:
     build: ./audit-compliance-service
     container_name: safemed-audit-compliance-service
     ports:
-      - "8083:8083"
+      - "8083:8083"   # http / rest
+      - "9090:9090"   # grpc channel (consumed by the gateway)
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://safemed-postgres:5432/safemed_audit_db
       SPRING_DATASOURCE_USERNAME: safemed_user
       SPRING_DATASOURCE_PASSWORD: safemed_password
+      # bind the grpc server port explicitly so it matches the gateway's GRPC_AUDIT_PORT
+      GRPC_SERVER_PORT: "9090"
     depends_on:
       safemed-postgres:
         condition: service_healthy
@@ -129,11 +132,15 @@ services:
       SPRING_DATASOURCE_PASSWORD: safemed_password
       SPRING_DATA_REDIS_HOST: safemed-redis
       SPRING_DATA_REDIS_PORT: "6379"
+      GRPC_AUDIT_HOST: safemed-audit-compliance-service
+      GRPC_AUDIT_PORT: "9090"
     depends_on:
       safemed-postgres:
         condition: service_healthy
       safemed-redis:
         condition: service_healthy
+      audit-compliance-service:
+        condition: service_started
 
 volumes:
   rabbitmq_data:

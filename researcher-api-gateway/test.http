@@ -36,23 +36,31 @@ Authorization: Bearer {{token}}
   "diseaseType": "Diabetes"
 }
 
-# token returned with the new request
+# id + token returned with the new request
+@requestId = {{createRequest.response.body.id}}
 @downloadToken = {{createRequest.response.body.downloadToken}}
 
 ### 4) list my requests (second call should hit redis cache)
 GET {{baseUrl}}/api/v1/datasets/requests/my
 Authorization: Bearer {{token}}
 
-### 5) download anonymized records by token
-# status is PENDING so this returns "not ready" until processed
+### 5) download before processing -> status is PENDING, returns "not ready"
 GET {{baseUrl}}/api/v1/datasets/download/{{downloadToken}}
 Authorization: Bearer {{token}}
 
-### 6) register a callback webhook url
+### 6) register a callback webhook url (use a real https://webhook.site/... url to see it fire)
 POST {{baseUrl}}/api/v1/researchers/webhooks
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
 {
-  "callbackUrl": "https://my-lab.example.com/safemed/callback"
+  "callbackUrl": "https://webhook.site/your-unique-id"
 }
+
+### 7) simulate data completion -> flips to PROCESSED and fires DatasetReadyNotificationSent webhook
+POST {{baseUrl}}/api/v1/datasets/requests/{{requestId}}/complete
+Authorization: Bearer {{token}}
+
+### 8) download after processing -> now returns the anonymized records
+GET {{baseUrl}}/api/v1/datasets/download/{{downloadToken}}
+Authorization: Bearer {{token}}

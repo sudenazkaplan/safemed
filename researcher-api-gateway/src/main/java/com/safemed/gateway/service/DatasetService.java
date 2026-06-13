@@ -14,4 +14,10 @@ public interface DatasetService {
 
     // mock anonymized records from the data store
     List<Map<String, Object>> getAnonymizedDataByToken(String downloadToken);
+
+    // store the researcher's callback url for dataset-ready notifications
+    void registerWebhook(String username, String callbackUrl);
+
+    // simulate the dataset becoming ready -> mark PROCESSED and fire the webhook
+    DatasetRequest completeRequest(Long requestId, String username);
 }

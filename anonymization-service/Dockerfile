@@ -5,6 +5,7 @@ WORKDIR /app
 # install deps first so they are cached when only code changes
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m spacy download en_core_web_lg
 
 # copy the rest of the application code
 COPY . .

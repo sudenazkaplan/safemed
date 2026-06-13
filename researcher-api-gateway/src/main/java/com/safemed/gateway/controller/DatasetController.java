@@ -47,9 +47,16 @@ public class DatasetController {
         return ResponseEntity.ok(datasetService.getAnonymizedDataByToken(downloadToken));
     }
 
-    // store a researcher's callback url (just confirm for now)
+    // simulate the dataset becoming ready -> flips to PROCESSED and fires the webhook
+    @PostMapping("/datasets/requests/{id}/complete")
+    public ResponseEntity<DatasetRequest> completeRequest(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(datasetService.completeRequest(id, principal.getName()));
+    }
+
+    // store the authenticated researcher's callback url
     @PostMapping("/researchers/webhooks")
-    public ResponseEntity<Map<String, String>> registerWebhook(@RequestBody WebhookRegisterDTO dto) {
+    public ResponseEntity<Map<String, String>> registerWebhook(@RequestBody WebhookRegisterDTO dto, Principal principal) {
+        datasetService.registerWebhook(principal.getName(), dto.getCallbackUrl());
         return ResponseEntity.ok(Map.of("message", "Callback URL registered: " + dto.getCallbackUrl()));
     }
 }

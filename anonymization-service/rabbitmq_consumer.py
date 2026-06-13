@@ -8,6 +8,8 @@ import os
 import random
 import threading
 import time
+import uuid
+from datetime import datetime, timezone
 
 import pika
 from pika.exceptions import AMQPConnectionError
@@ -27,6 +29,14 @@ RABBITMQ_PASSWORD = "guest"
 
 # java declares this queue as durable too
 RAW_QUEUE = "safemed.raw.queue"
+
+# dead letter side, must match the java RabbitMQConfig
+DLX_EXCHANGE = "safemed.dlx"
+DLQ = "safemed.raw.dlq"
+DLQ_ROUTING_KEY = "safemed.raw.dlq"
+
+# trace header set by the java producer
+CORRELATION_HEADER = "X-Correlation-ID"
 
 RECONNECT_DELAY_SECONDS = 5
 
@@ -116,33 +126,103 @@ async def _store_record(doc: dict) -> None:
         client.close()
 
 
-def _on_message(channel, method, properties, body) -> None:
+# idempotent consumer: have we already stored this eventId?
+async def _already_processed(event_id: str) -> bool:
+    client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=3000)
     try:
-        original = json.loads(body)
+        existing = await client[MONGO_DB][MONGO_COLLECTION].find_one({"eventId": event_id})
+        return existing is not None
+    finally:
+        client.close()
+
+
+# build a MedicalRecordAnonymizationFailed event and push it to the DLQ
+def _publish_failure_event(channel, event: dict, correlation_id: str, reason: str) -> None:
+    failure = {
+        "eventId": str(uuid.uuid4()),
+        "eventType": "MedicalRecordAnonymizationFailed",
+        "correlationId": correlation_id,
+        "trackingId": event.get("trackingId", "N/A"),
+        "occurredAt": datetime.now(timezone.utc).isoformat(),
+        "reason": reason,
+        # carry the original state along so a DLQ consumer doesn't need a lookup
+        "patientName": event.get("patientName"),
+        "nationalId": event.get("nationalId"),
+        "diseaseInfo": event.get("diseaseInfo"),
+        "hospitalName": event.get("hospitalName"),
+    }
+    channel.basic_publish(
+        exchange=DLX_EXCHANGE,
+        routing_key=DLQ_ROUTING_KEY,
+        body=json.dumps(failure).encode("utf-8"),
+        properties=pika.BasicProperties(
+            headers={CORRELATION_HEADER: correlation_id},
+            delivery_mode=2,  # persistent
+        ),
+    )
+
+
+# pull a header off the amqp properties, default to N/A
+def _header(properties, key) -> str:
+    if properties and properties.headers:
+        return properties.headers.get(key, "N/A")
+    return "N/A"
+
+
+def _on_message(channel, method, properties, body) -> None:
+    correlation_id = _header(properties, CORRELATION_HEADER)
+
+    try:
+        event = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-        logger.error("Failed to parse message payload, discarding. error=%s", exc)
-        # drop bad messages so they don't loop forever
+        logger.error("Failed to parse payload, dead-lettering. error=%s [X-Correlation-ID: %s]", exc, correlation_id)
+        # poison message, send it straight to the DLQ via the queue's DLX
         channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
         return
 
-    anonymized = anonymize_record(original)
+    event_id = event.get("eventId")
+    event_type = event.get("eventType", "Unknown")
+    tracking_id = event.get("trackingId", "N/A")
+    logger.info(
+        "Event received. type=%s eventId=%s trackingId=%s [X-Correlation-ID: %s]",
+        event_type, event_id, tracking_id, correlation_id,
+    )
 
-    tracking_id = original.get("trackingId", "N/A")
-    logger.info("Message received. trackingId=%s", tracking_id)
-    logger.info("Original   : %s", original)
+    # idempotent consumer: skip if this eventId is already stored (at-least-once safety)
+    try:
+        if event_id and asyncio.run(_already_processed(event_id)):
+            logger.info("Duplicate event, already processed. Skipping. eventId=%s [X-Correlation-ID: %s]",
+                        event_id, correlation_id)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+            return
+    except Exception as exc:
+        logger.error("Idempotency check failed, requeueing. error=%s [X-Correlation-ID: %s]", exc, correlation_id)
+        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+        return
+
+    anonymized = anonymize_record(event)
+    logger.info("Original   : %s", event)
     logger.info("Anonymized : %s", anonymized)
 
     # only ack once it's safely stored in mongo
     try:
         asyncio.run(_store_record(dict(anonymized)))
     except Exception as exc:
-        logger.error("Mongo insert failed, message not acked. error=%s", exc)
-        # leave it on the queue to retry later
-        channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+        if not method.redelivered:
+            # first failure, give it one retry on the main queue
+            logger.warning("Mongo insert failed, requeueing once. error=%s [X-Correlation-ID: %s]", exc, correlation_id)
+            channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+        else:
+            # failed repeatedly -> emit a failure event into the DLQ and let go of the original
+            logger.error("Mongo insert failed again, routing MedicalRecordAnonymizationFailed to DLQ. "
+                         "error=%s [X-Correlation-ID: %s]", exc, correlation_id)
+            _publish_failure_event(channel, event, correlation_id, f"Mongo insert failed: {exc}")
+            channel.basic_ack(delivery_tag=method.delivery_tag)
         return
 
     channel.basic_ack(delivery_tag=method.delivery_tag)
-    logger.info("Stored in mongo and acked. trackingId=%s", tracking_id)
+    logger.info("Stored in mongo and acked. eventId=%s trackingId=%s [X-Correlation-ID: %s]",
+                event_id, tracking_id, correlation_id)
 
 
 def _consume_loop() -> None:
@@ -161,8 +241,20 @@ def _consume_loop() -> None:
             connection = pika.BlockingConnection(parameters)
             channel = connection.channel()
 
-            # must be durable or rabbitmq throws PRECONDITION_FAILED
-            channel.queue_declare(queue=RAW_QUEUE, durable=True)
+            # declare the dead letter topology first (idempotent, matches the java side)
+            channel.exchange_declare(exchange=DLX_EXCHANGE, exchange_type="direct", durable=True)
+            channel.queue_declare(queue=DLQ, durable=True)
+            channel.queue_bind(queue=DLQ, exchange=DLX_EXCHANGE, routing_key=DLQ_ROUTING_KEY)
+
+            # main queue must carry the same dlx args or rabbitmq throws PRECONDITION_FAILED
+            channel.queue_declare(
+                queue=RAW_QUEUE,
+                durable=True,
+                arguments={
+                    "x-dead-letter-exchange": DLX_EXCHANGE,
+                    "x-dead-letter-routing-key": DLQ_ROUTING_KEY,
+                },
+            )
 
             # one message at a time
             channel.basic_qos(prefetch_count=1)

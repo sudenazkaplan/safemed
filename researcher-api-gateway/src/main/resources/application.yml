@@ -28,9 +28,20 @@ jwt:
   secret: change-this-very-long-secret-key-for-safemed-gateway-jwt-auth
   expiration-ms: 86400000 # 24h
 
+# grpc target for the audit-compliance service (override host in docker via GRPC_AUDIT_HOST)
+grpc:
+  audit:
+    host: localhost
+    port: 9090
+
 # swagger / openapi paths
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# put the correlation id (from MDC) on every log line
+logging:
+  pattern:
+    level: "%5p [Correlation-ID: %X{correlationId:-}]"

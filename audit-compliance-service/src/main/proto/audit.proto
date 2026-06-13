@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.safemed.grpc.audit";
+option java_outer_classname = "AuditProto";
+
+package audit;
+
+// internal audit logging contract between the gateway and the audit service
+service AuditService {
+  rpc SendLog (LogRequest) returns (LogResponse);
+}
+
+message LogRequest {
+  string action = 1;
+  string status = 2;
+  string details = 3;
+  string correlationId = 4;
+}
+
+message LogResponse {
+  bool success = 1;
+  string message = 2;
+}
